@@ -1,0 +1,27 @@
+[package]
+name = "fff-grep"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "fffd"
+path = "src/bin/fffd.rs"
+
+[[bin]]
+name = "fffq"
+path = "src/bin/fffq.rs"
+
+[dependencies]
+itoa = "1.0.18"
+fff-search = { version = "0.11", default-features = false, features = ["zlob", "mimalloc"] }
+
+[profile.release-fast]
+inherits = "release"
+opt-level = 3
+panic = "abort"
+codegen-units = 1
+lto = "fat"
+debug = false
+strip = true
+overflow-checks = false
+debug-assertions = false
