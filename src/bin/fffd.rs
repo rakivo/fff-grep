@@ -20,8 +20,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+    let base_path = std::fs::canonicalize(&base_path)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or(base_path);
+
     let shared_picker   = SharedFilePicker::default();
-    let shared_frecency = SharedFrecency::default();
+    let shared_frecency = if do_cache {
+        SharedFrecency::default()
+    } else {
+        SharedFrecency::noop()
+    };
 
     FilePicker::new_with_shared_state(
         shared_picker.clone(),
@@ -36,6 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                  Some(fff_search::types::ContentCacheBudget::unlimited())
             } else {
                 None
+            },
+            git_recency: fff_search::GitRecencyConfig {
+                enabled: false,
+                ..Default::default()
             },
             ..Default::default()
         },
