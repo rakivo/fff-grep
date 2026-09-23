@@ -9,7 +9,16 @@ use fff_search::{FFFMode, FilePickerOptions, GrepConfig, QueryParser, SharedFile
 const SOCKET_PATH: &str = "/tmp/fffd.sock";
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let base_path = std::env::args().nth(1).unwrap_or_else(|| ".".into());
+    let args = std::env::args().collect::<Vec<_>>();
+
+    let version             = args.iter().find(|f| f == &"--version").is_some();
+    let do_cache            = args.iter().find(|f| f == &"--no-cache").is_none();
+    let base_path           = args.iter().skip(1).find(|arg| !arg.starts_with('-')).cloned().unwrap_or_else(|| ".".into());
+
+    if version {
+        eprintln!("fff-grep 0.1.0 (fff-search 0.11.0)");
+        return Ok(());
+    }
 
     let shared_picker   = SharedFilePicker::default();
     let shared_frecency = SharedFrecency::default();
@@ -20,22 +29,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         FilePickerOptions {
             base_path,
             mode: FFFMode::Ai,
-            enable_content_indexing: true,
-            enable_mmap_cache: true,
-            watch: true,
-            cache_budget: Some(fff_search::types::ContentCacheBudget::unlimited()),
+            enable_content_indexing: do_cache,
+            watch: do_cache,
+            enable_mmap_cache: do_cache,
+            cache_budget: if do_cache {
+                 Some(fff_search::types::ContentCacheBudget::unlimited())
+            } else {
+                None
+            },
             ..Default::default()
         },
     )?;
 
-    if !shared_picker.wait_for_indexing_complete(std::time::Duration::from_secs(180)) {
+    if do_cache && !shared_picker.wait_for_indexing_complete(std::time::Duration::from_secs(180)) {
         eprintln!("fffd: indexing still running after 180s, serving anyway");
     }
 
     _ = std::fs::remove_file(SOCKET_PATH);
     let listener = UnixListener::bind(SOCKET_PATH)?;
 
-    eprintln!("fffd: indexed and listening on {SOCKET_PATH}");
+    eprintln!("fffd: {}listening on {SOCKET_PATH}", if do_cache { "indexed and " } else { "" });
 
     for conn in listener.incoming() {
         let shared_picker = shared_picker.clone();
